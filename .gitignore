@@ -1,0 +1,6 @@
+# Output files
+*.png
+
+# Python
+.venv
+__pycache__
