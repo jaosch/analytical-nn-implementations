@@ -75,6 +75,7 @@ class Training:
         self._build_model()
         self._train()
         self._evaluate()
+        self._save_model()
 
     def _generate_data(self):
         self.x = tf.constant(np.linspace([-2, -2], [2, 2], 100), dtype='float32')
@@ -102,10 +103,8 @@ class Training:
         print('\nTraining model: ...')
 
         self.model.fit([self.x],[self.y, self.dy, self.ddy, self.dddy],
-            epochs=5000,
+            epochs=100,
             verbose=0)
-
-        self.model.save('tf_model.keras')
 
     def _evaluate(self):
         print('\nEvaluating model: ...')
@@ -183,6 +182,34 @@ class Training:
         fig3.suptitle('Correlation of third derivatives', fontsize=16,  y=.995)
         plt.tight_layout()
         fig3.savefig("correlation_3rd_derivatives.png", dpi=300)
+
+    def _save_model(self):
+        print('\nSaving models: ...')
+
+        # Save to keras format
+        self.model.save('tf_model.keras')
+        print('...to .keras')
+
+        # Save for use with Tensorflow C++ API
+        @tf.function(input_signature=[tf.TensorSpec(shape=[None, 2], dtype=tf.float32)])
+        def serve_fn(inputs):
+            y, dy, ddy, dddy = self.model(inputs)
+            return {'output': y, 'dy_dx': dy, 'd2y_dx2': ddy, 'd3y_dx3': dddy}
+
+        signatures = {
+            "serving_default": serve_fn.get_concrete_function()
+        }
+
+        tf.saved_model.save(
+            self.model, "tf_model",
+            signatures=signatures)
+        print('...to .pb')
+
+        print('\nLoad model to check: ...')
+        loaded_model = tf.saved_model.load('saved_model_with_gradients')
+        print(loaded_model.signatures)
+
+
 
 
 def main():
